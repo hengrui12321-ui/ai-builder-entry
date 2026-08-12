@@ -27,11 +27,19 @@ if not api_key:
 
 
 # 在终端等待用户输入问题
-# Python 执行到这里时会暂停，直到你输入内容并按 Enter
-user_input = input("你想问 AI 什么？：")
+# .strip() 会删除输入内容前后的空格和换行
+user_input = input("你想问 AI 什么？：").strip()
 
 
-# 设置 Nova AI 的 Chat Completions API 地址
+# 如果 user_input 是空字符串，就提示用户不能提交空问题
+if not user_input:
+    print("问题不能为空，请输入内容后再试。")
+
+    # 立即结束当前 Python 程序，避免继续向 AI API 发送无效请求
+    raise SystemExit
+
+
+# 设置真正的 Nova AI 聊天接口地址
 url = "https://us.novaiapi.com/v1/chat/completions"
 
 
@@ -63,34 +71,59 @@ payload = {
 }
 
 
-# 向 Nova AI 发送 POST 请求
-response = requests.post(
-    # 请求发送到哪个地址
-    url,
+# 尝试执行网络请求，因为连接失败、断网、超时等情况都可能让这里报错
+try:
 
-    # 带上身份信息
-    headers=headers,
+    # 向 Nova AI 的服务器发送 POST 请求
+    response = requests.post(
+        # 请求发送到哪个地址
+        url,
 
-    # 把 payload 这个 Python 字典转换成 JSON 后发送给服务器
-    json=payload,
+        # 带上包含 API Key 的请求头
+        headers=headers,
 
-    # 最多等待服务器 60 秒，避免程序无限等待
-    timeout=60
-)
+        # 把 payload 这个 Python 字典自动转换成 JSON 并发送
+        json=payload,
+
+        # 最多等待服务器 60 秒，防止程序无限卡住
+        timeout=60
+    )
+
+# 如果 requests 在网络请求阶段抛出异常，就进入这里处理
+except requests.exceptions.RequestException as error:
+
+    # 把真正的网络错误打印出来，方便用户知道发生了什么
+    print("网络请求失败：", error)
+
+    # 网络请求都没有成功完成，所以直接结束程序
+    raise SystemExit
 
 
-# 打印服务器返回的 HTTP 状态码
+# 打印 HTTP 状态码，帮助判断这次请求是否成功
 print("HTTP 状态码：", response.status_code)
 
 
-# 把 Nova AI 返回的 JSON 数据转换成 Python 字典
+# 判断 HTTP 状态码是否不是 200
+if response.status_code != 200:
+
+    # 如果请求失败，就把服务器真正返回的错误内容打印出来
+    print("API 请求失败：", response.text)
+
+    # 请求已经失败，不应该继续读取 choices，因此直接结束程序
+    raise SystemExit
+
+
+# 只有状态码是 200 时，才把服务器返回的 JSON 转换成 Python 字典
 data = response.json()
 
 
-# 从返回数据的 choices 列表中取第 0 个结果，
-# 再进入 message，
-# 最后取出 content，也就是真正的模型回答文本
+# 从成功响应里的 choices 第一个结果中取出模型回答
 answer = data["choices"][0]["message"]["content"]
+
+
+# 把真正的模型回答打印出来
+print("AI：", answer)
+
 
 # 只打印模型真正回答的内容
 print("模型回答：", answer)
