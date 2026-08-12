@@ -1,8 +1,20 @@
-# 导入 os，用来读取环境变量里的 Nova API Key
+# 导入 os，用来读取操作系统中的环境变量
 import os
+
+# 从 python-dotenv 中导入 load_dotenv，用来加载项目里的 .env 文件
+from dotenv import load_dotenv
 
 # 导入 requests，用来发送 HTTP 网络请求
 import requests
+
+
+# 读取当前项目目录中的 .env 文件，
+# 并把里面的配置加载到 Python 程序运行时的环境变量中
+load_dotenv()
+
+
+# 从刚刚加载好的环境变量里读取 Nova API Key
+api_key = os.getenv("NOVA_API_KEY")
 
 
 # 从环境变量里读取 Nova API Key
