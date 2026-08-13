@@ -26,19 +26,6 @@ if not api_key:
     raise ValueError("没有读取到 NOVA_API_KEY")
 
 
-# 在终端等待用户输入问题
-# .strip() 会删除输入内容前后的空格和换行
-user_input = input("你想问 AI 什么？：").strip()
-
-
-# 如果 user_input 是空字符串，就提示用户不能提交空问题
-if not user_input:
-    print("问题不能为空，请输入内容后再试。")
-
-    # 立即结束当前 Python 程序，避免继续向 AI API 发送无效请求
-    raise SystemExit
-
-
 # 定义一个负责“向 AI 提问”的函数
 # question 表示调用这个函数时传进来的问题
 def ask_ai(question):
@@ -123,10 +110,34 @@ def ask_ai(question):
     # 把模型回答返回给调用 ask_ai() 的地方
     return answer
 
-# 把用户输入的问题交给 ask_ai() 函数
-# ask_ai() 执行完成后，会通过 return 把模型回答交回来
-answer = ask_ai(user_input)
 
-# 把刚刚从 ask_ai() 得到的模型回答打印出来
-print("AI：", answer)
+# 定义程序的主函数
+# main() 负责组织“用户输入 → 调用 AI → 显示结果”这一整条主流程
+def main():
+
+    # 等待用户在终端输入问题，并去掉前后的多余空格
+    user_input = input("你想问 AI 什么？：").strip()
+
+    # 如果用户没有输入有效内容，就进入这个判断
+    if not user_input:
+
+        # 告诉用户问题不能为空
+        print("问题不能为空，请输入内容后再试。")
+
+        # 直接结束 main() 函数，不继续调用 AI
+        return
+
+    # 把用户的问题交给 ask_ai()，并接收函数返回的模型回答
+    answer = ask_ai(user_input)
+
+    # 把模型回答显示给用户
+    print("AI：", answer)
+
+
+# 只有当这个文件被直接运行时，才正式启动 main() 主函数
+if __name__ == "__main__":
+
+    # 调用 main()，开始执行程序的主流程
+    main()
+
 
