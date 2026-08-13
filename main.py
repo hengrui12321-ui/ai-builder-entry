@@ -39,93 +39,94 @@ if not user_input:
     raise SystemExit
 
 
-# 设置真正的 Nova AI 聊天接口地址
-url = "https://us.novaiapi.com/v1/chat/completions"
+# 定义一个负责“向 AI 提问”的函数
+# question 表示调用这个函数时传进来的问题
+def ask_ai(question):
+
+    # 设置 Nova AI 的聊天接口地址
+    url = "https://us.novaiapi.com/v1/chat/completions"
+
+    # 构造 HTTP 请求头
+    # Authorization 用来告诉 Nova AI：“这是我的 API Key，请验证我的身份”
+    headers = {
+        # 把之前读取到的 api_key 放进 Authorization 请求头
+        "Authorization": f"Bearer {api_key}",
+
+        # 告诉服务器：接下来发送的数据格式是 JSON
+        "Content-Type": "application/json"
+    }
+
+    # 构造真正发送给 AI 的请求内容
+    payload = {
+        # 指定要调用的模型
+        "model": "gemini-3-pro-preview",
+
+        # messages 是发送给聊天模型的消息列表
+        "messages": [
+            {
+                # 表示这条消息来自用户
+                "role": "user",
+
+                # 使用 ask_ai 函数收到的 question
+                "content": question
+            }
+        ]
+    }
 
 
-# 构造 HTTP 请求头
-# Authorization 用来告诉 Nova AI：“这是我的 API Key，请验证我的身份”
-headers = {
-    "Authorization": f"Bearer {api_key}",
 
-    # 告诉服务器：我接下来发送的数据格式是 JSON
-    "Content-Type": "application/json"
-}
+    # 尝试执行网络请求，因为这里可能出现断网、超时、连接失败等异常
+    try:
 
+        # 向 Nova AI 发送 POST 请求
+        response = requests.post(
+            # 请求发送到哪个地址
+            url,
 
-# 构造真正要发送给 AI 的内容
-payload = {
-    # 指定要调用的模型；这个模型名必须和 Nova AI 模型广场里的 ID 一致
-    "model": "gemini-3-pro-preview",
+            # 带上身份认证和数据格式信息
+            headers=headers,
 
-    # messages 表示这次对话的消息列表
-    "messages": [
-        {
-            # role=user 表示这句话是用户说的
-            "role": "user",
+            # 把 payload 转换成 JSON 后发送
+            json=payload,
 
-            # content 是我们真正想问模型的问题
-            "content": user_input
-        }
-    ]
-}
+            # 最多等待 60 秒
+            timeout=60
+        )
 
+    # 捕获 requests 网络请求相关的异常
+    except requests.exceptions.RequestException as error:
 
-# 尝试执行网络请求，因为连接失败、断网、超时等情况都可能让这里报错
-try:
+        # 打印真正发生的网络错误
+        print("网络请求失败：", error)
 
-    # 向 Nova AI 的服务器发送 POST 请求
-    response = requests.post(
-        # 请求发送到哪个地址
-        url,
+        # 网络请求没有成功，因此直接结束程序
+        raise SystemExit
 
-        # 带上包含 API Key 的请求头
-        headers=headers,
+    # 打印 HTTP 状态码，方便判断服务器有没有正常处理请求
+    print("HTTP 状态码：", response.status_code)
 
-        # 把 payload 这个 Python 字典自动转换成 JSON 并发送
-        json=payload,
+    # 如果服务器返回的状态码不是 200，就不要继续解析正常 AI 回答
+    if response.status_code != 200:
 
-        # 最多等待服务器 60 秒，防止程序无限卡住
-        timeout=60
-    )
+        # 打印服务器真正返回的错误内容
+        print("API 请求失败：", response.text)
 
-# 如果 requests 在网络请求阶段抛出异常，就进入这里处理
-except requests.exceptions.RequestException as error:
+        # 请求失败，因此结束程序
+        raise SystemExit
 
-    # 把真正的网络错误打印出来，方便用户知道发生了什么
-    print("网络请求失败：", error)
+    # 把服务器返回的 JSON 转换成 Python 数据
+    data = response.json()
 
-    # 网络请求都没有成功完成，所以直接结束程序
-    raise SystemExit
+    # 从返回数据里找到真正的模型回答
+    answer = data["choices"][0]["message"]["content"]
 
+    # 把模型回答返回给调用 ask_ai() 的地方
+    return answer
 
-# 打印 HTTP 状态码，帮助判断这次请求是否成功
-print("HTTP 状态码：", response.status_code)
+# 把用户输入的问题交给 ask_ai() 函数
+# ask_ai() 执行完成后，会通过 return 把模型回答交回来
+answer = ask_ai(user_input)
 
-
-# 判断 HTTP 状态码是否不是 200
-if response.status_code != 200:
-
-    # 如果请求失败，就把服务器真正返回的错误内容打印出来
-    print("API 请求失败：", response.text)
-
-    # 请求已经失败，不应该继续读取 choices，因此直接结束程序
-    raise SystemExit
-
-
-# 只有状态码是 200 时，才把服务器返回的 JSON 转换成 Python 字典
-data = response.json()
-
-
-# 从成功响应里的 choices 第一个结果中取出模型回答
-answer = data["choices"][0]["message"]["content"]
-
-
-# 把真正的模型回答打印出来
+# 把刚刚从 ask_ai() 得到的模型回答打印出来
 print("AI：", answer)
-
-
-# 只打印模型真正回答的内容
-print("模型回答：", answer)
-
 
