@@ -21,6 +21,10 @@ if not user_input:
 
 # 构造准备发送给自己 FastAPI 的 JSON 数据
 payload = {
+
+    # 暂时固定使用 chat-001，表示这次请求属于 001 号会话
+    "session_id": "chat-001",
+
     # question 就是 /chat 接口要求客户端提供的字段
     "question": user_input
 }

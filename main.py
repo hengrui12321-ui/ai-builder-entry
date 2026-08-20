@@ -1,11 +1,16 @@
 # 导入 os，用来读取操作系统中的环境变量
 import os
 
+
 # 从 python-dotenv 中导入 load_dotenv，用来读取项目里的 .env 文件
 from dotenv import load_dotenv
 
+
 # 导入 requests，用来发送 HTTP 网络请求
 import requests
+
+# 从 database.py 导入数据库初始化、保存消息、读取 AI 消息历史三个函数
+from database import init_db, add_message, get_messages_for_ai
 
 
 # 读取当前项目目录里的 .env 文件，并把里面的配置加载到程序环境中
@@ -21,9 +26,14 @@ if not api_key:
     raise ValueError("没有读取到 NOVA_API_KEY")
 
 
+# 初始化 SQLite 数据库，确保 chat.db 和 messages 表已经存在
+init_db()
+
+
 # 定义一个负责“向 AI 提问”的函数
-# question 是调用这个函数时传进来的用户问题
-def ask_ai(question):
+# session_id 表示这次问题属于哪一段会话，question 表示用户当前的问题
+def ask_ai(session_id, question):
+
 
     # 设置 Nova AI 的聊天接口地址
     url = "https://us.novaiapi.com/v1/chat/completions"
@@ -37,24 +47,33 @@ def ask_ai(question):
         "Content-Type": "application/json"
     }
 
+
+    # 根据当前 session_id，从 SQLite 中读取这段会话以前的所有聊天历史
+    messages = get_messages_for_ai(session_id)
+
+
+    # 把用户这一次的新问题临时加入准备发送给 Gemini 的消息列表
+    messages.append(
+        {
+            # 表示这条消息来自用户
+            "role": "user",
+
+            # 保存用户当前提出的问题
+            "content": question
+        }
+    )
+
+
     # 构造真正发送给 AI 的请求内容
     payload = {
         # 指定要调用的模型
         "model": "gemini-3-pro-preview",
 
-        # messages 是发送给聊天模型的消息列表
-        "messages": [
-            {
-                # 表示这条消息来自用户
-                "role": "user",
-
-                # 把传进 ask_ai() 的 question 放进请求内容
-                "content": question
-            }
-        ]
+        # 把目前已经保存的完整对话历史一起发送给模型
+        "messages": messages
     }
 
-    # 尝试发送网络请求，因为断网、超时、连接失败等情况都有可能发生
+    # 下面原来已有的 try 也继续保持在 ask_ai() 函数内部
     try:
 
         # 向 Nova AI 发送 POST 请求
@@ -95,7 +114,35 @@ def ask_ai(question):
     # 从返回数据中逐层找到模型真正回答的文字
     answer = data["choices"][0]["message"]["content"]
 
-    # 把模型回答从 ask_ai() 函数内部返回给调用它的地方
+
+
+    # AI 调用成功后，把用户当前的问题正式保存进 SQLite
+    add_message(
+        # 保存这条消息属于哪个会话
+        session_id,
+
+        # 表示这是一条用户消息
+        "user",
+
+        # 保存用户的问题
+        question
+    )
+
+
+    # 再把 AI 刚刚生成的回答保存进同一个会话
+    add_message(
+        # 使用同一个 session_id，保证问答属于同一段聊天
+        session_id,
+
+        # 表示这是一条 AI 消息
+        "assistant",
+
+        # 保存 AI 的回答
+        answer
+    )
+
+
+    # 把 AI 回答返回给调用 ask_ai() 的上一层
     return answer
 
 
@@ -118,8 +165,15 @@ def main():
     # 尝试调用 ask_ai()，因为底层 AI 服务可能出现错误
     try:
 
-        # 把用户的问题传给 ask_ai()，并接收返回的模型回答
-        answer = ask_ai(user_input)
+        # 终端直接运行 main.py 时，统一使用一个固定的 terminal-chat 会话
+        answer = ask_ai(
+            # 给终端版聊天使用固定的 session_id
+            "terminal-chat",
+
+        # 把用户输入的问题传给 AI
+        user_input
+    )
+
 
     # 如果 ask_ai() 抛出了 RuntimeError，就进入这里
     except RuntimeError as error:

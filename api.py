@@ -14,10 +14,13 @@ from main import ask_ai
 app = FastAPI()
 
 
-# 定义调用 /chat 接口时，客户端必须提交的数据结构
+# 定义 /chat 接口要求客户端提交的数据结构
 class ChatRequest(BaseModel):
 
-    # 要求 JSON 中必须有 question 字段，而且它必须是字符串
+    # session_id 用来告诉服务器“这次请求属于哪一段聊天”
+    session_id: str
+
+    # question 保存用户这一次真正提出的问题
     question: str
 
 
@@ -37,8 +40,22 @@ def health():
 # request 会接收客户端传来的 JSON，并按照 ChatRequest 进行验证
 def chat(request: ChatRequest):
 
+    # 从客户端提交的数据中取出 session_id，并去掉前后多余空格
+    session_id = request.session_id.strip()
+
     # 从 request 中取出 question，并删除前后的多余空格
     question = request.question.strip()
+
+    # 临时打印 session_id，用来确认客户端确实把它传到了服务器
+    print("当前 session_id：", session_id)
+
+    # 如果 session_id 为空，就拒绝请求
+    if not session_id:
+        raise HTTPException(
+            status_code=400,
+            detail="session_id 不能为空"
+        )
+
 
     # 如果用户提交的是空问题，就进入这里
     if not question:
@@ -52,8 +69,14 @@ def chat(request: ChatRequest):
     # 尝试调用昨天写好的 ask_ai() 函数
     try:
 
-        # 把客户端的问题交给 AI，并接收模型回答
-        answer = ask_ai(question)
+        # 把当前会话编号和用户问题一起交给 ask_ai()
+        answer = ask_ai(
+            # 告诉 AI 层当前属于哪一段会话
+            session_id,
+
+            # 把用户当前问题传进去
+            question
+        )
 
     # 如果 ask_ai() 抛出 RuntimeError，就进入这里
     except RuntimeError as error:
@@ -66,5 +89,6 @@ def chat(request: ChatRequest):
 
     # AI 调用成功以后，把答案作为 JSON 返回给客户端
     return {"answer": answer}
+
 
 
