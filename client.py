@@ -2,10 +2,22 @@
 import requests
 
 
+# 导入 uuid 模块，用来自动生成唯一的会话编号
+import uuid
+
+
 # 设置我们自己刚刚创建的 /chat API 地址
 url = "http://127.0.0.1:8000/chat"
 
 
+# 自动生成一个唯一聊天会话编号
+session_id = str(uuid.uuid4())
+
+
+# 显示当前聊天使用的 session_id，方便观察测试
+print("当前会话编号：", session_id)
+
+    
 # 在终端等待用户输入问题，并去掉问题前后的多余空格
 user_input = input("请输入你想问 AI 的问题：").strip()
 
@@ -19,11 +31,12 @@ if not user_input:
     # 直接结束当前客户端程序
     raise SystemExit
 
+
 # 构造准备发送给自己 FastAPI 的 JSON 数据
 payload = {
 
-    # 暂时固定使用 chat-001，表示这次请求属于 001 号会话
-    "session_id": "chat-001",
+    # 使用程序自动生成的唯一会话编号
+    "session_id": session_id,
 
     # question 就是 /chat 接口要求客户端提供的字段
     "question": user_input

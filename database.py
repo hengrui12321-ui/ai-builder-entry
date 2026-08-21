@@ -134,8 +134,10 @@ if __name__ == "__main__":
     # 确保数据库和 messages 表已经存在
     init_db()
 
-    # 查询 chat-001 的聊天记录，并转换成 AI API 需要的 messages 格式
-    messages = get_messages_for_ai("chat-001")
+    # 查询指定 UUID 会话的历史消息
+    messages = get_messages_for_ai(
+        "31d09723-ddfc-4113-8372-2b92c768dc8f"
+    )
 
     # 把转换后的结果打印出来，方便我们检查格式
     print(messages)
