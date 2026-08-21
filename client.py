@@ -1,17 +1,17 @@
-# 导入 requests，让这个 Python 程序能够发送 HTTP 请求
+# 导入 requests，用来发送 HTTP 请求
 import requests
 
 
-# 导入 uuid 模块，用来自动生成唯一的会话编号
-import uuid
+# 从 session.py 导入获取 session_id 的函数
+from session import get_session_id
 
 
 # 设置我们自己刚刚创建的 /chat API 地址
 url = "http://127.0.0.1:8000/chat"
 
 
-# 自动生成一个唯一聊天会话编号
-session_id = str(uuid.uuid4())
+# 从 session 模块获取固定的聊天会话编号
+session_id = get_session_id()
 
 
 # 显示当前聊天使用的 session_id，方便观察测试
