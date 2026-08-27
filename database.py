@@ -128,19 +128,11 @@ def get_messages_for_ai(session_id):
     return messages
 
 
-# 只有直接运行 database.py 时，才执行下面的测试代码
+# 只有直接运行 database.py 时，才执行最小初始化检查
 if __name__ == "__main__":
 
-    # 确保数据库和 messages 表已经存在
+    # 确保旧版 chat.db 和 messages 表存在
     init_db()
 
-    # 查询指定 UUID 会话的历史消息
-    messages = get_messages_for_ai(
-        "31d09723-ddfc-4113-8372-2b92c768dc8f"
-    )
-
-    # 把转换后的结果打印出来，方便我们检查格式
-    print(messages)
-
-
-
+    # 只提示初始化成功，不再自动插入测试消息
+    print("旧版聊天数据库初始化完成")

@@ -3,4 +3,5 @@
 __pycache__/
 chat_history.json
 chat.db
-
+product_chat.db
+session_id.txt
