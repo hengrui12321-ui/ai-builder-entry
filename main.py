@@ -13,6 +13,15 @@ import requests
 from database import init_db, add_message, get_messages_for_ai
 
 
+# 从新版产品数据库导入初始化、保存消息、读取 AI 历史三个函数
+# 使用别名，避免和旧 database.py 里的同名函数发生冲突
+from product_database import (
+    init_db as init_product_db,
+    add_message as add_product_message,
+    get_messages_for_ai as get_product_messages_for_ai,
+)
+
+
 # 读取当前项目目录里的 .env 文件，并把里面的配置加载到程序环境中
 load_dotenv()
 
@@ -28,6 +37,10 @@ if not api_key:
 
 # 初始化 SQLite 数据库，确保 chat.db 和 messages 表已经存在
 init_db()
+
+
+# 初始化新版产品数据库，确保 users、conversations、messages 三张表存在
+init_product_db()
 
 
 # 定义一个负责“向 AI 提问”的函数
@@ -143,6 +156,82 @@ def ask_ai(session_id, question):
 
 
     # 把 AI 回答返回给调用 ask_ai() 的上一层
+    return answer
+
+
+# 定义产品版 AI 调用函数
+# conversation_id 表示新版产品数据库中的某一个聊天窗口
+def ask_ai_product(conversation_id, question):
+
+    # 根据 conversation_id 从新版 product_chat.db 读取这个聊天窗口的历史
+    messages = get_product_messages_for_ai(conversation_id)
+
+    # 把用户当前的新问题临时加入本次发送给模型的上下文
+    messages.append(
+        {
+            "role": "user",
+            "content": question
+        }
+    )
+
+    # 设置 Nova AI 的聊天接口地址
+    url = "https://us.novaiapi.com/v1/chat/completions"
+
+    # 构造 HTTP 请求头
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    # 构造发送给模型的请求内容
+    payload = {
+        "model": "gemini-3-pro-preview",
+        "messages": messages
+    }
+
+    # 尝试向 Nova 发送网络请求
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+
+    # 如果网络连接阶段发生异常，把错误交给上一层处理
+    except requests.exceptions.RequestException as error:
+        raise RuntimeError(f"网络请求失败：{error}")
+
+    # 开发阶段打印 HTTP 状态码，方便观察
+    print("产品版 AI HTTP 状态码：", response.status_code)
+
+    # 如果 Nova 没有正常返回 200，就不能继续按成功结构解析
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"AI API 请求失败，状态码：{response.status_code}，错误：{response.text}"
+        )
+
+    # 把 Nova 返回的 JSON 转成 Python 数据
+    data = response.json()
+
+    # 从成功响应中取得模型真正的回答
+    answer = data["choices"][0]["message"]["content"]
+
+    # AI 成功以后，才把当前用户问题写进新版产品数据库
+    add_product_message(
+        conversation_id,
+        "user",
+        question
+    )
+
+    # 再把模型回答写进同一个 conversation
+    add_product_message(
+        conversation_id,
+        "assistant",
+        answer
+    )
+
+    # 把回答交给调用者
     return answer
 
 
