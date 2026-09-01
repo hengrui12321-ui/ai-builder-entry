@@ -6,9 +6,8 @@ from fastapi import FastAPI, HTTPException
 # BaseModel 用来定义“客户端传给我们的 JSON 应该长什么样”
 from pydantic import BaseModel
 
-# 从 main.py 中导入昨天已经写好的 ask_ai() 函数
-from main import ask_ai
-
+# 同时导入旧版 Session AI 和新版 Conversation AI
+from main import ask_ai, ask_ai_product
 
 # 创建 FastAPI 应用对象
 app = FastAPI()
@@ -21,6 +20,16 @@ class ChatRequest(BaseModel):
     session_id: str
 
     # question 保存用户这一次真正提出的问题
+    question: str
+
+
+# 定义新版产品聊天接口要求的 JSON 数据结构
+class ProductChatRequest(BaseModel):
+
+    # conversation_id 对应 product_chat.db 中 conversations 表的主键
+    conversation_id: int
+
+    # question 保存用户当前提出的问题
     question: str
 
 
@@ -92,3 +101,48 @@ def chat(request: ChatRequest):
 
 
 
+# 注册新版 POST /product-chat 接口
+@app.post("/product-chat")
+
+# 接收 conversation_id + question，并按照 ProductChatRequest 自动验证类型
+def product_chat(request: ProductChatRequest):
+
+    # conversation_id 是新版 conversations 表中的主键
+    conversation_id = request.conversation_id
+
+    # 删除用户问题前后的多余空格
+    question = request.question.strip()
+
+    # 开发阶段打印 conversation_id，方便确认 HTTP 请求传递是否正确
+    print("当前 conversation_id：", conversation_id)
+
+    # conversation_id 必须是正整数
+    if conversation_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_id 必须大于 0"
+        )
+
+    # 空问题不发送给 AI
+    if not question:
+        raise HTTPException(
+            status_code=400,
+            detail="问题不能为空"
+        )
+
+    # 调用已经验证通过的产品版 AI Memory
+    try:
+        answer = ask_ai_product(
+            conversation_id,
+            question
+        )
+
+    # 目前先沿用旧接口的错误处理方式
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=str(error)
+        )
+
+    # AI 成功以后，把回答转换成 JSON 返回给客户端
+    return {"answer": answer}
