@@ -9,6 +9,11 @@ from pydantic import BaseModel
 # 同时导入旧版 Session AI 和新版 Conversation AI
 from main import ask_ai, ask_ai_product
 
+
+# 从产品数据库导入单个聊天查询函数，用来验证 conversation 是否真实存在
+from product_database import get_conversation
+
+
 # 创建 FastAPI 应用对象
 app = FastAPI()
 
@@ -121,6 +126,17 @@ def product_chat(request: ProductChatRequest):
         raise HTTPException(
             status_code=400,
             detail="conversation_id 必须大于 0"
+        )
+
+    # 根据 conversation_id 查询真实的聊天窗口
+    conversation = get_conversation(conversation_id)
+
+    # 如果数据库里没有这个 conversation，就直接返回 404
+    # 不继续调用 AI，避免浪费上游 API 请求
+    if conversation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
         )
 
     # 空问题不发送给 AI

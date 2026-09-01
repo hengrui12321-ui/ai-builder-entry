@@ -228,6 +228,44 @@ def get_messages_for_ai(conversation_id):
     return ai_messages
 
 
+# 根据 conversation_id 查询一个具体聊天窗口
+def get_conversation(conversation_id):
+
+    # 通过统一入口获得数据库连接
+    connection = get_connection()
+
+    # 创建游标，用来执行 SELECT
+    cursor = connection.cursor()
+
+    # 根据主键查询指定的 conversation
+    cursor.execute(
+        """
+        SELECT id, user_id, title, created_at
+        FROM conversations
+        WHERE id = ?
+        """,
+        (conversation_id,)
+    )
+
+    # 主键最多只能匹配一条记录，所以只取一行
+    row = cursor.fetchone()
+
+    # 查询完成以后关闭数据库连接
+    connection.close()
+
+    # 如果没有找到这个 conversation，就返回 None
+    if row is None:
+        return None
+
+    # 把数据库 tuple 转成字段含义清楚的 dict
+    return {
+        "id": row[0],
+        "user_id": row[1],
+        "title": row[2],
+        "created_at": row[3]
+    }
+
+
 # 查询某个用户拥有的全部聊天窗口
 def get_conversations(user_id):
 
