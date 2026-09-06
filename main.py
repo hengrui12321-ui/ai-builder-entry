@@ -30,9 +30,18 @@ load_dotenv()
 api_key = os.getenv("NOVA_API_KEY")
 
 
+# 从环境变量中读取当前要使用的 AI 模型
+ai_model = os.getenv("AI_MODEL")
+
+
 # 如果没有读取到 API Key，就立即报错，避免继续发送无效请求
 if not api_key:
     raise ValueError("没有读取到 NOVA_API_KEY")
+
+
+# 如果没有配置模型名，就立即停止程序，避免发送错误请求
+if not ai_model:
+    raise ValueError("没有读取到 AI_MODEL")
 
 
 # 初始化 SQLite 数据库，确保 chat.db 和 messages 表已经存在
@@ -80,7 +89,7 @@ def ask_ai(session_id, question):
     # 构造真正发送给 AI 的请求内容
     payload = {
         # 指定要调用的模型
-        "model": "gemini-3-pro-preview",
+        "model": ai_model,
 
         # 把目前已经保存的完整对话历史一起发送给模型
         "messages": messages
@@ -185,7 +194,7 @@ def ask_ai_product(conversation_id, question):
 
     # 构造发送给模型的请求内容
     payload = {
-        "model": "gemini-3-pro-preview",
+        "model": ai_model,
         "messages": messages
     }
 
