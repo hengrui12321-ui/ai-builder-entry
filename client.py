@@ -2,23 +2,20 @@
 import requests
 
 
-# 从 session.py 导入获取 session_id 的函数
-from session import get_session_id
+# 设置新版产品聊天 API 地址
+url = "http://127.0.0.1:8000/product-chat"
 
 
-# 设置我们自己刚刚创建的 /chat API 地址
-url = "http://127.0.0.1:8000/chat"
+# 暂时固定使用已经存在的 Conversation 1
+# 这样可以先验证新版客户端链路是否完整跑通
+conversation_id = 1
 
 
-# 从 session 模块获取固定的聊天会话编号
-session_id = get_session_id()
+# 显示当前正在使用哪个聊天
+print("当前聊天 ID：", conversation_id)
 
 
-# 显示当前聊天使用的 session_id，方便观察测试
-print("当前会话编号：", session_id)
-
-    
-# 在终端等待用户输入问题，并去掉问题前后的多余空格
+# 在终端等待用户输入问题，并去掉前后的多余空格
 user_input = input("请输入你想问 AI 的问题：").strip()
 
 
@@ -32,23 +29,25 @@ if not user_input:
     raise SystemExit
 
 
-# 构造准备发送给自己 FastAPI 的 JSON 数据
+# 构造准备发送给新版 FastAPI 的 JSON 数据
 payload = {
 
-    # 使用程序自动生成的唯一会话编号
-    "session_id": session_id,
+    # 告诉后端：这条消息属于哪个 Conversation
+    "conversation_id": conversation_id,
 
-    # question 就是 /chat 接口要求客户端提供的字段
+    # 用户当前输入的问题
     "question": user_input
 }
 
 
-# 尝试调用我们自己的 FastAPI，因为服务器可能没有启动、断开或超时
+# 尝试调用我们自己的 FastAPI
+# 因为服务器可能没有启动、断开或超时
 try:
 
-    # 向我们自己的 FastAPI /chat 接口发送 POST 请求
+    # 向新版 /product-chat 接口发送 POST 请求
     response = requests.post(
-        # 请求发送到我们自己的 /chat 地址
+
+        # 请求发送到新版产品聊天地址
         url,
 
         # 把 payload 作为 JSON Request Body 发送
@@ -61,14 +60,14 @@ try:
 # 如果请求过程中发生连接失败、超时等网络异常，就进入这里
 except requests.exceptions.RequestException as error:
 
-    # 给客户端用户显示一个更容易理解的错误提示
+    # 给客户端用户显示更容易理解的错误提示
     print("无法连接到 AI 后端：", error)
 
-    # 后端都没有连接成功，所以直接结束客户端程序
+    # 后端没有连接成功，所以直接结束程序
     raise SystemExit
 
 
-# 打印我们自己的 FastAPI 返回的 HTTP 状态码
+# 打印 FastAPI 返回的 HTTP 状态码
 print("我的 API 状态码：", response.status_code)
 
 
@@ -82,7 +81,7 @@ if response.status_code != 200:
     # 显示 FastAPI 返回的错误信息
     print("API 请求失败：", data)
 
-    # 错误响应里通常没有 answer，所以到这里直接结束程序
+    # 错误响应里通常没有 answer，所以直接结束程序
     raise SystemExit
 
 
@@ -92,4 +91,5 @@ answer = data["answer"]
 
 # 把最终 AI 回答显示给用户
 print("AI：", answer)
+
 
