@@ -145,82 +145,70 @@ else:
 # 显示当前正在使用哪个聊天
 print("当前聊天 ID：", conversation_id)
 
-
-# 在终端等待用户输入问题，并去掉前后的多余空格
-user_input = input("请输入你想问 AI 的问题：").strip()
-
-
-# 如果用户没有输入有效内容，就不要继续发送 API 请求
-if not user_input:
-
-    # 提示用户问题不能为空
-    print("问题不能为空，请重新运行后输入问题。")
-
-    # 直接结束当前客户端程序
-    raise SystemExit
+# 告诉用户如何结束当前聊天
+print("输入 exit 可以退出聊天。")
 
 
-# 构造准备发送给新版 FastAPI 的 JSON 数据
-payload = {
+# True 永远成立，所以这里会持续进入聊天循环
+while True:
 
-    # 告诉后端：这条消息属于哪个 Conversation
-    "conversation_id": conversation_id,
+    # 等待用户输入当前这一轮的问题，并去掉前后空格
+    user_input = input("\n你：").strip()
 
-    # 用户当前输入的问题
-    "question": user_input
-}
+    # 如果用户输入 exit，就结束 while 循环
+    if user_input.lower() == "exit":
+        print("已退出当前聊天。")
+        break
 
-
-# 尝试调用我们自己的 FastAPI
-# 因为服务器可能没有启动、断开或超时
-try:
-
-    # 向新版 /product-chat 接口发送 POST 请求
-    response = requests.post(
-
-        # 请求发送到新版产品聊天地址
-        url,
-
-        # 把 payload 作为 JSON Request Body 发送
-        json=payload,
-
-        # 最多等待 90 秒，避免请求无限等待
-        timeout=90
-    )
-
-# 如果请求过程中发生连接失败、超时等网络异常，就进入这里
-except requests.exceptions.RequestException as error:
-
-    # 给客户端用户显示更容易理解的错误提示
-    print("无法连接到 AI 后端：", error)
-
-    # 后端没有连接成功，所以直接结束程序
-    raise SystemExit
+    # 如果用户什么都没输入，就不要调用后端
+    if not user_input:
+        print("问题不能为空，请重新输入。")
+        continue
 
 
-# 打印 FastAPI 返回的 HTTP 状态码
-print("我的 API 状态码：", response.status_code)
+    # 构造这一轮要发送给 /product-chat 的 JSON 数据
+    payload = {
+        "conversation_id": conversation_id,
+        "question": user_input
+    }
 
 
-# 把 FastAPI 返回的 JSON 转换成 Python 数据
-data = response.json()
+    # 尝试向自己的 FastAPI 后端发送聊天请求
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=90
+        )
+
+    # 如果发生连接失败、超时等网络错误
+    except requests.exceptions.RequestException as error:
+        print("无法连接到 AI 后端：", error)
+
+        # 这次请求失败，但不结束整个聊天
+        # 直接回到 while 顶部，让用户可以继续输入
+        continue
 
 
-# 如果 HTTP 状态码不是 200，说明这次请求没有正常成功
-if response.status_code != 200:
+    # 如果后端返回的状态码不是 200
+    if response.status_code != 200:
 
-    # 显示 FastAPI 返回的错误信息
-    print("API 请求失败：", data)
+        print(
+            "API 请求失败：",
+            response.json()
+        )
 
-    # 错误响应里通常没有 answer，所以直接结束程序
-    raise SystemExit
-
-
-# 只有状态码为 200 时，才读取成功响应中的 answer 字段
-answer = data["answer"]
+        # 这一轮失败，但聊天程序继续运行
+        continue
 
 
-# 把最终 AI 回答显示给用户
-print("AI：", answer)
+    # 把后端成功响应的 JSON 转成 Python 字典
+    data = response.json()
+
+    # 从 JSON 中取出 AI 回答
+    answer = data["answer"]
+
+    # 显示 AI 回答
+    print("AI：", answer)
 
 
