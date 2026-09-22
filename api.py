@@ -10,8 +10,15 @@ from pydantic import BaseModel
 from main import ask_ai, ask_ai_product
 
 
-# 从产品数据库导入单个聊天查询函数，用来验证 conversation 是否真实存在
-from product_database import get_conversation
+# 从产品数据库导入聊天相关函数
+# get_conversation：查询某一个具体聊天
+# get_conversations：查询某个用户拥有的全部聊天
+# create_conversation：为某个用户创建一个新聊天
+from product_database import (
+    get_conversation,
+    get_conversations,
+    create_conversation,
+)
 
 
 # 创建 FastAPI 应用对象
@@ -38,6 +45,13 @@ class ProductChatRequest(BaseModel):
     question: str
 
 
+# 定义创建新聊天时客户端需要提交的数据结构
+class CreateConversationRequest(BaseModel):
+
+    # title 是用户给这个聊天起的名字
+    title: str
+
+
 # 注册一个 GET /health 接口，用来检查服务器是否正常运行
 @app.get("/health")
 
@@ -46,6 +60,76 @@ def health():
 
     # 返回一个 Python 字典，FastAPI 会自动转换成 JSON
     return {"status": "ok"}
+
+
+# 注册一个 GET 接口，用来查询某个用户拥有的全部聊天
+@app.get("/users/{user_id}/conversations")
+
+# user_id 来自 URL 路径，例如 /users/1/conversations 中的 1
+def list_conversations(user_id: int):
+
+    # user_id 必须是正整数
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="user_id 必须大于 0"
+        )
+
+    # 调用数据库层函数，查询这个用户拥有的全部聊天
+    conversations = get_conversations(user_id)
+
+    # 把聊天列表作为 JSON 返回给客户端
+    return {
+        "conversations": conversations
+    }
+
+
+# 注册一个 POST 接口，用来为某个用户创建新的聊天
+@app.post("/users/{user_id}/conversations")
+
+# user_id 来自 URL，request 来自客户端提交的 JSON Body
+def create_user_conversation(
+    user_id: int,
+    request: CreateConversationRequest
+):
+
+    # 从请求体中取得聊天标题，并去掉前后多余空格
+    title = request.title.strip()
+
+    # user_id 必须是正整数
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="user_id 必须大于 0"
+        )
+
+    # 聊天标题不能为空
+    if not title:
+        raise HTTPException(
+            status_code=400,
+            detail="聊天标题不能为空"
+        )
+
+    # 调用数据库层函数，真正创建聊天
+    try:
+        conversation_id = create_conversation(
+            user_id,
+            title
+        )
+
+    # 如果数据库创建失败，例如 user_id 不存在
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    # 创建成功后，把新聊天的信息返回给客户端
+    return {
+        "conversation_id": conversation_id,
+        "user_id": user_id,
+        "title": title
+    }
 
 
 # 注册一个 POST /chat 接口，用来接收用户问题

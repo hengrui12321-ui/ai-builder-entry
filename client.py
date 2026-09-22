@@ -6,9 +6,140 @@ import requests
 url = "http://127.0.0.1:8000/product-chat"
 
 
-# 暂时固定使用已经存在的 Conversation 1
-# 这样可以先验证新版客户端链路是否完整跑通
-conversation_id = 1
+# 当前先固定使用数据库中的用户 1
+# 后面做登录系统时，再把这里替换成真实登录用户
+user_id = 1
+
+
+# 拼出“查询当前用户全部聊天”的 API 地址
+conversations_url = (
+    f"http://127.0.0.1:8000/users/{user_id}/conversations"
+)
+
+
+# 向后端请求当前用户已有的聊天列表
+try:
+    conversations_response = requests.get(
+        conversations_url,
+        timeout=30
+    )
+
+except requests.exceptions.RequestException as error:
+    print("无法获取聊天列表：", error)
+    raise SystemExit
+
+
+# 如果聊天列表接口返回的不是 200，就停止程序
+if conversations_response.status_code != 200:
+
+    print(
+        "获取聊天列表失败：",
+        conversations_response.json()
+    )
+
+    raise SystemExit
+
+
+# 把后端返回的 JSON 转成 Python 字典
+conversations_data = conversations_response.json()
+
+
+# 从字典中取出真正的聊天列表
+conversations = conversations_data["conversations"]
+
+
+# 显示当前用户已有的聊天
+print("\n已有聊天：")
+
+for conversation in conversations:
+
+    print(
+        f"{conversation['id']}. "
+        f"{conversation['title']}"
+    )
+
+
+# 0 专门表示“创建一个新的聊天”
+print("0. 新建聊天")
+
+
+# 读取用户的选择
+choice = input("\n请选择聊天编号：").strip()
+
+
+# 只有纯数字才能继续
+if not choice.isdigit():
+
+    print("请输入有效的数字编号。")
+    raise SystemExit
+
+
+# 已经确认输入是数字，现在把字符串转换成真正的整数
+choice = int(choice)
+
+
+# 把当前用户已有聊天的 id 收集起来
+conversation_ids = [
+    conversation["id"]
+    for conversation in conversations
+]
+
+
+# 如果用户输入 0，就创建一个新的聊天
+if choice == 0:
+
+    # 让用户输入新聊天标题
+    title = input("请输入新聊天标题：").strip()
+
+    # 标题不能为空
+    if not title:
+        print("聊天标题不能为空。")
+        raise SystemExit
+
+    # 拼出创建聊天的 API 地址
+    create_url = (
+        f"http://127.0.0.1:8000/users/{user_id}/conversations"
+    )
+
+    # 尝试向后端发送创建聊天请求
+    try:
+        create_response = requests.post(
+            create_url,
+            json={"title": title},
+            timeout=30
+        )
+
+    except requests.exceptions.RequestException as error:
+        print("创建聊天失败：", error)
+        raise SystemExit
+
+    # 如果后端没有成功创建聊天，就停止程序
+    if create_response.status_code != 200:
+        print(
+            "创建聊天失败：",
+            create_response.json()
+        )
+        raise SystemExit
+
+    # 解析后端返回的新聊天信息
+    create_data = create_response.json()
+
+    # 取出数据库刚刚生成的新 conversation_id
+    conversation_id = create_data["conversation_id"]
+
+    print("新聊天创建成功，ID：", conversation_id)
+
+
+# 如果不是 0，就说明用户想进入已有聊天
+else:
+
+    # 如果这个编号不属于当前用户已有聊天，就拒绝继续
+    if choice not in conversation_ids:
+        print("聊天编号不存在，请重新运行后选择。")
+        raise SystemExit
+
+    # 编号合法，正式进入这个聊天
+    conversation_id = choice
 
 
 # 显示当前正在使用哪个聊天
