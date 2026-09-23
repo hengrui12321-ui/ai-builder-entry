@@ -88,19 +88,17 @@ conversation_ids = [
 # 如果用户输入 0，就创建一个新的聊天
 if choice == 0:
 
-    # 让用户输入新聊天标题
-    title = input("请输入新聊天标题：").strip()
+    # 新聊天刚创建时先使用临时标题
+    # 等用户成功发送第一条消息以后，再自动更新标题
+    title = "新聊天"
 
-    # 标题不能为空
-    if not title:
-        print("聊天标题不能为空。")
-        raise SystemExit
+    # 记录这是一个刚刚创建的新 Conversation
+    is_new_conversation = True
 
     # 拼出创建聊天的 API 地址
     create_url = (
         f"http://127.0.0.1:8000/users/{user_id}/conversations"
     )
-
     # 尝试向后端发送创建聊天请求
     try:
         create_response = requests.post(
@@ -140,6 +138,9 @@ else:
 
     # 编号合法，正式进入这个聊天
     conversation_id = choice
+
+    # 这是用户选择的已有聊天，不需要自动修改标题
+    is_new_conversation = False
 
 
 # 显示当前正在使用哪个聊天
@@ -272,3 +273,46 @@ while True:
     print("AI：", answer)
 
 
+    # 如果这是刚刚创建的新聊天，就根据第一条用户消息自动生成标题
+    if is_new_conversation:
+
+        # V1 先直接取用户第一句话的前 20 个字符作为标题
+        auto_title = user_input[:20]
+
+        # 如果用户的问题超过 20 个字符，就在后面加省略号
+        if len(user_input) > 20:
+            auto_title += "..."
+
+        # 拼出修改当前聊天标题的 PATCH API 地址
+        update_title_url = (
+            f"http://127.0.0.1:8000/conversations/{conversation_id}"
+        )
+
+        # 尝试请求 PATCH 接口修改标题
+        try:
+            title_response = requests.patch(
+                update_title_url,
+                json={"title": auto_title},
+                timeout=30
+            )
+
+        # 如果连接失败或超时，只提示错误，不影响继续聊天
+        except requests.exceptions.RequestException as error:
+            print("自动更新聊天标题失败：", error)
+
+        else:
+
+            # PATCH 成功
+            if title_response.status_code == 200:
+                print("聊天标题已自动更新为：", auto_title)
+
+                # 标题已经生成过一次
+                # 后面的聊天不要继续修改标题
+                is_new_conversation = False
+
+            # PATCH 接口返回了错误状态码
+            else:
+                print(
+                    "自动更新聊天标题失败：",
+                    title_response.json()
+                )
