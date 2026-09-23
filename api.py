@@ -19,6 +19,7 @@ from product_database import (
     get_conversations,
     create_conversation,
     get_messages,
+    update_conversation_title,
 )
 
 
@@ -50,6 +51,13 @@ class ProductChatRequest(BaseModel):
 class CreateConversationRequest(BaseModel):
 
     # title 是用户给这个聊天起的名字
+    title: str
+
+
+# 定义修改聊天标题时客户端需要提交的数据结构
+class UpdateConversationTitleRequest(BaseModel):
+
+    # title 是准备更新成的新标题
     title: str
 
 
@@ -129,6 +137,63 @@ def create_user_conversation(
     return {
         "conversation_id": conversation_id,
         "user_id": user_id,
+        "title": title
+    }
+
+
+# 注册一个 PATCH 接口，用来修改已有聊天的标题
+@app.patch("/conversations/{conversation_id}")
+
+# conversation_id 来自 URL，request 来自 JSON Body
+def update_conversation(
+    conversation_id: int,
+    request: UpdateConversationTitleRequest
+):
+
+    # 去掉标题前后的多余空格
+    title = request.title.strip()
+
+    # conversation_id 必须是正整数
+    if conversation_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_id 必须大于 0"
+        )
+
+    # 新标题不能为空
+    if not title:
+        raise HTTPException(
+            status_code=400,
+            detail="聊天标题不能为空"
+        )
+
+    # 先确认这个 conversation 真实存在
+    conversation = get_conversation(conversation_id)
+
+    # 如果不存在，就返回 404
+    if conversation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
+        )
+
+    # 调用数据库层，真正修改标题
+    updated_rows = update_conversation_title(
+        conversation_id,
+        title
+    )
+
+    # 理论上如果前面已经确认存在，这里应该更新 1 行
+    # 如果是 0，说明没有真正修改到任何记录
+    if updated_rows == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
+        )
+
+    # 修改成功以后，把新的标题返回给客户端
+    return {
+        "conversation_id": conversation_id,
         "title": title
     }
 

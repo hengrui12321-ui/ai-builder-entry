@@ -312,6 +312,43 @@ def get_conversations(user_id):
     # 返回更适合应用程序使用的聊天列表
     return conversations
 
+
+# 修改指定聊天窗口的标题
+def update_conversation_title(conversation_id, title):
+
+    # 通过统一入口获取已经开启外键约束的数据库连接
+    connection = get_connection()
+
+    # 创建游标，用来执行 UPDATE SQL
+    cursor = connection.cursor()
+
+    try:
+
+        # 修改指定 conversation_id 对应的 title
+        cursor.execute(
+            """
+            UPDATE conversations
+            SET title = ?
+            WHERE id = ?
+            """,
+            (title, conversation_id)
+        )
+
+        # 保存这次数据库修改
+        connection.commit()
+
+        # rowcount 表示这次 UPDATE 实际影响了多少行
+        updated_rows = cursor.rowcount
+
+        # 返回修改到的记录数量
+        return updated_rows
+
+    finally:
+
+        # 无论成功还是失败，都关闭数据库连接
+        connection.close()
+
+
 # 定义新版数据库初始化函数
 def init_db():
 
