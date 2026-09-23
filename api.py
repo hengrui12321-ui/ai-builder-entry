@@ -18,6 +18,7 @@ from product_database import (
     get_conversation,
     get_conversations,
     create_conversation,
+    get_messages,
 )
 
 
@@ -129,6 +130,39 @@ def create_user_conversation(
         "conversation_id": conversation_id,
         "user_id": user_id,
         "title": title
+    }
+
+
+# 注册一个 GET 接口，用来查询某个聊天中的全部历史消息
+@app.get("/conversations/{conversation_id}/messages")
+
+# conversation_id 来自 URL 路径
+def list_messages(conversation_id: int):
+
+    # conversation_id 必须是正整数
+    if conversation_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_id 必须大于 0"
+        )
+
+    # 先确认这个聊天真实存在
+    conversation = get_conversation(conversation_id)
+
+    # 如果找不到聊天，就返回 404
+    if conversation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
+        )
+
+    # 查询这个聊天中的全部历史消息
+    messages = get_messages(conversation_id)
+
+    # 把消息列表返回给客户端
+    return {
+        "conversation_id": conversation_id,
+        "messages": messages
     }
 
 

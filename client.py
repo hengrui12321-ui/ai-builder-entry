@@ -145,6 +145,66 @@ else:
 # 显示当前正在使用哪个聊天
 print("当前聊天 ID：", conversation_id)
 
+# 拼出当前聊天历史记录的 API 地址
+messages_url = (
+    f"http://127.0.0.1:8000/conversations/{conversation_id}/messages"
+)
+
+
+# 尝试向后端请求当前聊天的历史消息
+try:
+    messages_response = requests.get(
+        messages_url,
+        timeout=30
+    )
+
+# 如果请求历史记录时发生连接失败、超时等网络异常
+except requests.exceptions.RequestException as error:
+    print("无法获取聊天历史：", error)
+    raise SystemExit
+
+
+# 如果历史消息接口没有正常返回 200，就停止程序
+if messages_response.status_code != 200:
+    print(
+        "获取聊天历史失败：",
+        messages_response.json()
+    )
+    raise SystemExit
+
+
+# 把后端返回的 JSON 转成 Python 字典
+messages_data = messages_response.json()
+
+
+# 从字典中取出真正的历史消息列表
+messages = messages_data["messages"]
+
+
+# 如果当前聊天里已经有历史消息，就显示出来
+if messages:
+
+    print("\n========== 历史记录 ==========")
+
+    # 一条一条读取历史消息
+    for message in messages:
+
+        # 用户消息显示成“你”
+        if message["role"] == "user":
+            print("\n你：", message["content"])
+
+        # AI 消息显示成“AI”
+        elif message["role"] == "assistant":
+            print("\nAI：", message["content"])
+
+    print("\n==============================")
+
+
+# 如果这个聊天还没有任何历史消息
+else:
+    print("\n这是一个新聊天，目前还没有历史消息。")
+
+
 # 告诉用户如何结束当前聊天
 print("输入 exit 可以退出聊天。")
 
