@@ -244,6 +244,93 @@ def ask_ai_product(conversation_id, question):
     return answer
 
 
+# 根据用户第一句话，让 AI 生成一个简短的聊天标题
+# 这个函数只负责生成标题，不会把任何消息写进聊天数据库
+def generate_conversation_title(question):
+
+
+    # 先准备一个本地备用标题
+    # 如果 AI 标题生成失败，就退回这个标题
+    fallback_title = question[:20]
+
+    # 如果原问题超过 20 个字符，在备用标题后加省略号
+    if len(question) > 20:
+        fallback_title += "..."
+
+
+    # 设置 Nova AI 的聊天接口地址
+    url = "https://us.novaiapi.com/v1/chat/completions"
+
+    # 构造 HTTP 请求头
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    # 单独构造标题生成任务
+    # 这里不读取 Conversation 历史，也不调用 add_product_message()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是聊天标题生成器。"
+                "请根据用户的第一句话生成一个简洁、准确的中文聊天标题。"
+                "标题尽量控制在20个字符以内。"
+                "只输出标题本身，不要引号，不要解释，不要句号。"
+            )
+        },
+        {
+            "role": "user",
+            "content": question
+        }
+    ]
+
+    # 构造发送给模型的数据
+    payload = {
+        "model": ai_model,
+        "messages": messages
+    }
+
+    # 尝试调用 Nova
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+
+    # 如果标题生成时出现网络失败或超时
+    except requests.exceptions.RequestException as error:
+
+        # 标题只是辅助功能，所以失败时不要让整个程序退出
+        print("AI 标题生成失败，使用备用标题：", error)
+
+        # 返回本地准备好的备用标题
+        return fallback_title
+
+
+    if response.status_code != 200:
+
+        # Nova 返回错误状态码时，也退回备用标题
+        print(
+            "AI 标题生成失败，状态码：",
+            response.status_code
+        )
+
+        return fallback_title
+
+
+    # 把 Nova 返回的 JSON 转成 Python 数据
+    data = response.json()
+
+    # 取出模型生成的标题，并去掉前后多余空格
+    title = data["choices"][0]["message"]["content"].strip()
+
+    # 返回标题
+    return title
+
+
 # 定义程序的主函数
 # main() 负责“获取用户输入 → 调用 AI → 显示结果”
 def main():

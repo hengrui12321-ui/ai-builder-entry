@@ -6,9 +6,12 @@ from fastapi import FastAPI, HTTPException
 # BaseModel 用来定义“客户端传给我们的 JSON 应该长什么样”
 from pydantic import BaseModel
 
-# 同时导入旧版 Session AI 和新版 Conversation AI
-from main import ask_ai, ask_ai_product
-
+# 导入聊天 AI，以及聊天标题生成能力
+from main import (
+    ask_ai,
+    ask_ai_product,
+    generate_conversation_title,
+)
 
 # 从产品数据库导入聊天相关函数
 # get_conversation：查询某一个具体聊天
@@ -55,11 +58,18 @@ class CreateConversationRequest(BaseModel):
 
 
 # 定义修改聊天标题时客户端需要提交的数据结构
+
+    title: str
 class UpdateConversationTitleRequest(BaseModel):
 
     # title 是准备更新成的新标题
     title: str
 
+# 定义自动生成聊天标题时客户端需要提交的数据
+class GenerateConversationTitleRequest(BaseModel):
+
+    # question 是用户在新聊天中的第一句话
+    question: str
 
 # 注册一个 GET /health 接口，用来检查服务器是否正常运行
 @app.get("/health")
@@ -192,6 +202,64 @@ def update_conversation(
         )
 
     # 修改成功以后，把新的标题返回给客户端
+    return {
+        "conversation_id": conversation_id,
+        "title": title
+    }
+
+
+# 根据用户第一句话自动生成标题，并保存到当前 Conversation
+@app.post("/conversations/{conversation_id}/generate-title")
+def generate_title(
+    conversation_id: int,
+    request: GenerateConversationTitleRequest
+):
+
+    # 取出用户第一句话，并删除前后多余空格
+    question = request.question.strip()
+
+    # conversation_id 必须是正整数
+    if conversation_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_id 必须大于 0"
+        )
+
+    # 第一条消息不能为空
+    if not question:
+        raise HTTPException(
+            status_code=400,
+            detail="question 不能为空"
+        )
+
+    # 先确认这个 Conversation 真实存在
+    conversation = get_conversation(conversation_id)
+
+    if conversation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
+        )
+
+    # 让 AI 根据第一句话生成标题
+    # 如果 Nova 失败，generate_conversation_title()
+    # 会自动返回 fallback_title
+    title = generate_conversation_title(question)
+
+    # 把生成出来的标题真正写入数据库
+    updated_rows = update_conversation_title(
+        conversation_id,
+        title
+    )
+
+    # 正常情况下应该修改一条记录
+    if updated_rows == 0:
+        raise HTTPException(
+            status_code=404,
+            detail="conversation 不存在"
+        )
+
+    # 把最终使用的标题返回给客户端
     return {
         "conversation_id": conversation_id,
         "title": title

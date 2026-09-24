@@ -273,46 +273,50 @@ while True:
     print("AI：", answer)
 
 
-    # 如果这是刚刚创建的新聊天，就根据第一条用户消息自动生成标题
+    # 如果这是刚创建的新聊天，就让后端根据第一句话自动生成标题
     if is_new_conversation:
 
-        # V1 先直接取用户第一句话的前 20 个字符作为标题
-        auto_title = user_input[:20]
-
-        # 如果用户的问题超过 20 个字符，就在后面加省略号
-        if len(user_input) > 20:
-            auto_title += "..."
-
-        # 拼出修改当前聊天标题的 PATCH API 地址
-        update_title_url = (
-            f"http://127.0.0.1:8000/conversations/{conversation_id}"
+        # 拼出“自动生成聊天标题”的 API 地址
+        generate_title_url = (
+            f"http://127.0.0.1:8000/conversations/"
+            f"{conversation_id}/generate-title"
         )
 
-        # 尝试请求 PATCH 接口修改标题
+        # 尝试把用户第一句话交给后端
         try:
-            title_response = requests.patch(
-                update_title_url,
-                json={"title": auto_title},
-                timeout=30
+            title_response = requests.post(
+                generate_title_url,
+                json={"question": user_input},
+                timeout=90
             )
 
-        # 如果连接失败或超时，只提示错误，不影响继续聊天
+        # 即使标题接口连接失败，也不能影响用户正常聊天
         except requests.exceptions.RequestException as error:
-            print("自动更新聊天标题失败：", error)
+            print("自动生成聊天标题失败：", error)
 
         else:
 
-            # PATCH 成功
+            # 后端成功生成并保存标题
             if title_response.status_code == 200:
-                print("聊天标题已自动更新为：", auto_title)
 
-                # 标题已经生成过一次
-                # 后面的聊天不要继续修改标题
+                # 把返回的 JSON 转成 Python 字典
+                title_data = title_response.json()
+
+                # 取出后端最终生成的标题
+                generated_title = title_data["title"]
+
+                # 告诉终端用户标题已经生成
+                print(
+                    "聊天标题已自动更新为：",
+                    generated_title
+                )
+
+                # 这个聊天已经生成过标题
+                # 后面的消息不能再重复改标题
                 is_new_conversation = False
 
-            # PATCH 接口返回了错误状态码
             else:
                 print(
-                    "自动更新聊天标题失败：",
+                    "自动生成聊天标题失败：",
                     title_response.json()
                 )
