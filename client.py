@@ -92,8 +92,6 @@ if choice == 0:
     # 等用户成功发送第一条消息以后，再自动更新标题
     title = "新聊天"
 
-    # 记录这是一个刚刚创建的新 Conversation
-    is_new_conversation = True
 
     # 拼出创建聊天的 API 地址
     create_url = (
@@ -138,9 +136,6 @@ else:
 
     # 编号合法，正式进入这个聊天
     conversation_id = choice
-
-    # 这是用户选择的已有聊天，不需要自动修改标题
-    is_new_conversation = False
 
 
 # 显示当前正在使用哪个聊天
@@ -269,54 +264,17 @@ while True:
     # 从 JSON 中取出 AI 回答
     answer = data["answer"]
 
+    # 读取后端本轮可能自动生成的新标题
+    # 如果这不是新聊天，这里的值通常就是 None
+    generated_title = data.get("generated_title")
+
     # 显示 AI 回答
     print("AI：", answer)
 
-
-    # 如果这是刚创建的新聊天，就让后端根据第一句话自动生成标题
-    if is_new_conversation:
-
-        # 拼出“自动生成聊天标题”的 API 地址
-        generate_title_url = (
-            f"http://127.0.0.1:8000/conversations/"
-            f"{conversation_id}/generate-title"
+    # 如果后端这一轮确实生成了新标题，就显示出来
+    if generated_title:
+        print(
+            "聊天标题已自动更新为：",
+            generated_title
         )
 
-        # 尝试把用户第一句话交给后端
-        try:
-            title_response = requests.post(
-                generate_title_url,
-                json={"question": user_input},
-                timeout=90
-            )
-
-        # 即使标题接口连接失败，也不能影响用户正常聊天
-        except requests.exceptions.RequestException as error:
-            print("自动生成聊天标题失败：", error)
-
-        else:
-
-            # 后端成功生成并保存标题
-            if title_response.status_code == 200:
-
-                # 把返回的 JSON 转成 Python 字典
-                title_data = title_response.json()
-
-                # 取出后端最终生成的标题
-                generated_title = title_data["title"]
-
-                # 告诉终端用户标题已经生成
-                print(
-                    "聊天标题已自动更新为：",
-                    generated_title
-                )
-
-                # 这个聊天已经生成过标题
-                # 后面的消息不能再重复改标题
-                is_new_conversation = False
-
-            else:
-                print(
-                    "自动生成聊天标题失败：",
-                    title_response.json()
-                )

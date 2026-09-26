@@ -411,5 +411,26 @@ def product_chat(request: ProductChatRequest):
             detail=str(error)
         )
 
-    # AI 成功以后，把回答转换成 JSON 返回给客户端
-    return {"answer": answer}
+        # 默认情况下，这一轮不会生成新的聊天标题
+    generated_title = None
+
+    # 如果当前聊天还是默认的“新聊天”
+    # 说明这是一个还没有正式标题的新 Conversation
+    if conversation["title"] == "新聊天":
+
+        # 根据用户第一句话生成正式标题
+        generated_title = generate_conversation_title(
+            question
+        )
+
+        # 把生成出来的标题保存进数据库
+        update_conversation_title(
+            conversation_id,
+            generated_title
+        )
+
+    # 把 AI 回答和可能生成的新标题一起返回给客户端
+    return {
+        "answer": answer,
+        "generated_title": generated_title
+    }
